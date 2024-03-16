@@ -33,7 +33,7 @@ contract RevShare {
 
     uint256 public pool = 0;
 
-    uint256 public min = 1 ether;
+    uint256 public min = 0.01 ether;
 
     constructor(address _token) {
         owner = msg.sender;

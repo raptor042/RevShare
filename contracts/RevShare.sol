@@ -33,13 +33,19 @@ contract RevShare {
 
     uint256 public pool = 0;
 
-    uint256 public min = 0.01 ether;
+    uint256 public minDeposit = 0.01 ether;
+
+    uint256 public minBalance = 1 ether;
+
+    mapping (address => uint256) public timestamps;
 
     constructor(address _token) {
         owner = msg.sender;
 
         token = _token;
     }
+
+    event Pool_Funded(uint256 amount);
 
     event Claimed(address indexed user, uint256 amount);
 
@@ -49,17 +55,23 @@ contract RevShare {
     }
 
     function fundPool() public payable onlyOwner {
-        require(msg.value > min, "Minimium prize pool requirement is 1 ETH.");
+        require(msg.value >= minDeposit, "Minimium prize pool requirement is 1 ETH.");
 
         pool += msg.value;
+
+        emit Pool_Funded(msg.value);
     }
 
     function claim() public payable {
         require(pool > 0, "Prize pool is empty.");
 
+        uint256 duration = timestamps[msg.sender] - block.timestamp;
+
+        require(duration >= 86400, "Please wait for the next share unlock.");
+
         IERC20 Token = IERC20(token);
 
-        require(Token.balanceOf(msg.sender) > 0, "You do not HODL the token of choice.");
+        require(Token.balanceOf(msg.sender) >= minBalance, "You do not HODL enough of the token.");
 
         uint256 ratio = Token.balanceOf(msg.sender) / Token.totalSupply();
 
@@ -69,6 +81,8 @@ contract RevShare {
         require(os);
 
         pool -= dividend;
+
+        timestamps[msg.sender] = block.timestamp;
 
         emit Claimed(msg.sender, dividend);
     }

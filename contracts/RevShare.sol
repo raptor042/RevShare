@@ -33,11 +33,19 @@ contract RevShare {
 
     uint256 public pool = 0;
 
-    uint256 public minDeposit = 0.01 ether;
+    uint256 public minDeposit = 1 ether;
 
-    uint256 public minBalance = 1 ether;
+    uint256 public minBalance = 0.01 ether;
 
-    mapping (address => uint256) public timestamps;
+    struct User {
+        address user;
+        uint256 balance;
+        uint256 timestamp;
+    }
+
+    User[] public users;
+
+    mapping (address => User) public user;
 
     constructor(address _token) {
         owner = msg.sender;
@@ -46,6 +54,8 @@ contract RevShare {
     }
 
     event Pool_Funded(uint256 amount);
+
+    event User_Created(address indexed user);
 
     event Claimed(address indexed user, uint256 amount);
 
@@ -62,12 +72,62 @@ contract RevShare {
         emit Pool_Funded(msg.value);
     }
 
+    function userExists(address _user) internal view returns (bool) {
+        bool user_exist = false;
+
+        for(uint256 i = 0; i < users.length; i++) {
+            if(users[i].user == _user) {
+                user_exist = true;
+
+                break;
+            }
+        }
+
+        return user_exist;
+    }
+
+    function createUser() public {
+        require(!userExists(msg.sender), "You already have an account");
+
+        User memory _user = User({
+            user: msg.sender,
+            balance: 0,
+            timestamp: 0
+        });
+
+        users.push(_user);
+
+        user[msg.sender] = _user;
+
+        emit User_Created(msg.sender);
+    }
+
+    function distribute() public onlyOwner {
+        for(uint256 i = 0; i < users.length; i++) {
+            User storage _user = users[i];
+
+            IERC20 Token = IERC20(token);
+
+            if(Token.balanceOf(msg.sender) >= minBalance) {
+                uint256 ratio = Token.balanceOf(msg.sender) / Token.totalSupply();
+
+                uint256 dividend = (ratio * pool) / 100;
+
+                _user.balance += dividend;
+            }
+        }
+    }
+
     function claim() public payable {
         require(pool > 0, "Prize pool is empty.");
 
-        uint256 duration = timestamps[msg.sender] - block.timestamp;
+        User storage _user = user[msg.sender];
 
-        require(duration >= 86400, "Please wait for the next share unlock.");
+        if(_user.timestamp > 0) {
+            uint256 duration = _user.timestamp - block.timestamp;
+
+            require(duration >= 86400, "Please wait for the next share unlock.");
+        }
 
         IERC20 Token = IERC20(token);
 
@@ -82,7 +142,7 @@ contract RevShare {
 
         pool -= dividend;
 
-        timestamps[msg.sender] = block.timestamp;
+        _user.timestamp = block.timestamp;
 
         emit Claimed(msg.sender, dividend);
     }

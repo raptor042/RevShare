@@ -33,9 +33,9 @@ contract RevShare {
 
     uint256 public pool = 0;
 
-    uint256 public minDeposit = 1 ether;
+    uint256 public minDeposit = 0.1 ether;
 
-    uint256 public minBalance = 0.01 ether;
+    uint256 public minBalance = 1000 ether;
 
     struct User {
         address user;
@@ -86,20 +86,18 @@ contract RevShare {
         return user_exist;
     }
 
-    function createUser() public {
-        require(!userExists(msg.sender), "You already have an account");
-
+    function createUser(address user_) internal {
         User memory _user = User({
-            user: msg.sender,
+            user: user_,
             balance: 0,
-            timestamp: 0
+            timestamp: block.timestamp
         });
 
         users.push(_user);
 
-        user[msg.sender] = _user;
+        user[user_] = _user;
 
-        emit User_Created(msg.sender);
+        emit User_Created(user_);
     }
 
     function distribute() public onlyOwner {
@@ -111,7 +109,7 @@ contract RevShare {
             if(Token.balanceOf(msg.sender) >= minBalance) {
                 uint256 ratio = Token.balanceOf(msg.sender) / Token.totalSupply();
 
-                uint256 dividend = (ratio * pool) / 100;
+                uint256 dividend = (ratio * pool) * 10 ** Token.decimals();
 
                 _user.balance += dividend;
             }
@@ -121,29 +119,46 @@ contract RevShare {
     function claim() public payable {
         require(pool > 0, "Prize pool is empty.");
 
-        User storage _user = user[msg.sender];
+        IERC20 Token = IERC20(token);
 
-        if(_user.timestamp > 0) {
+        if(userExists(msg.sender)) {
+            User storage _user = user[msg.sender];
+
             uint256 duration = _user.timestamp - block.timestamp;
 
             require(duration >= 86400, "Please wait for the next share unlock.");
+
+            require(Token.balanceOf(msg.sender) >= minBalance, "You do not HODL enough of the token.");
+
+            uint256 ratio = Token.balanceOf(msg.sender) / Token.totalSupply();
+
+            uint256 dividend = (ratio * pool) * 10 ** Token.decimals();
+
+            (bool os, ) = payable(msg.sender).call{value: dividend}("");
+            require(os);
+
+            pool -= dividend;
+
+            _user.balance -= dividend;
+
+            _user.timestamp = block.timestamp;
+
+            emit Claimed(msg.sender, dividend);
+        } else {
+            createUser(msg.sender);
+
+            require(Token.balanceOf(msg.sender) >= minBalance, "You do not HODL enough of the token.");
+
+            uint256 ratio = Token.balanceOf(msg.sender) / Token.totalSupply();
+
+            uint256 dividend = (ratio * pool) * 10 ** Token.decimals();
+
+            (bool os, ) = payable(msg.sender).call{value: dividend}("");
+            require(os);
+
+            pool -= dividend;
+
+            emit Claimed(msg.sender, dividend);
         }
-
-        IERC20 Token = IERC20(token);
-
-        require(Token.balanceOf(msg.sender) >= minBalance, "You do not HODL enough of the token.");
-
-        uint256 ratio = Token.balanceOf(msg.sender) / Token.totalSupply();
-
-        uint256 dividend = (ratio * pool) / 100;
-
-        (bool os, ) = payable(msg.sender).call{value: dividend}("");
-        require(os);
-
-        pool -= dividend;
-
-        _user.timestamp = block.timestamp;
-
-        emit Claimed(msg.sender, dividend);
     }
 }

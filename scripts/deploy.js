@@ -7,7 +7,7 @@
 const hre = require("hardhat");
 
 async function main() {
-  const rev_share = await hre.ethers.deployContract("RevShare", ["0xF47B8bc1CBcdf611ca25Ac8a3c7c23c7F8fd7B2E"]);
+  const rev_share = await hre.ethers.deployContract("RevShare", ["0xC11dBFcc38b3F3e1b0896DD907B4460508141E07"]);
 
   await rev_share.waitForDeployment();
 

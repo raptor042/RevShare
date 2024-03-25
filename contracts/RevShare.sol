@@ -107,9 +107,7 @@ contract RevShare {
             IERC20 Token = IERC20(token);
 
             if(Token.balanceOf(msg.sender) >= minBalance) {
-                uint256 _pool = pool * 10**Token.decimals();
-
-                uint256 dividend = (Token.balanceOf(msg.sender) * _pool) / Token.totalSupply();
+                uint256 dividend = (Token.balanceOf(msg.sender) * pool) / Token.totalSupply();
                 
                 _user.balance += dividend;
             }
@@ -130,9 +128,7 @@ contract RevShare {
 
             require(Token.balanceOf(msg.sender) >= minBalance, "You do not HODL enough of the token.");
 
-            uint256 _pool = pool * 10**Token.decimals();
-
-            uint256 dividend = (Token.balanceOf(msg.sender) * _pool) / Token.totalSupply();
+            uint256 dividend = (Token.balanceOf(msg.sender) * pool) / Token.totalSupply();
 
             (bool os, ) = payable(msg.sender).call{value: dividend}("");
             require(os);
@@ -149,9 +145,7 @@ contract RevShare {
 
             require(Token.balanceOf(msg.sender) >= minBalance, "You do not HODL enough of the token.");
 
-            uint256 _pool = pool * 10**Token.decimals();
-
-            uint256 dividend = (Token.balanceOf(msg.sender) * _pool) / Token.totalSupply();
+            uint256 dividend = (Token.balanceOf(msg.sender) * pool) / Token.totalSupply();
 
             (bool os, ) = payable(msg.sender).call{value: dividend}("");
             require(os);

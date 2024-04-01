@@ -31,7 +31,7 @@ contract RevShare {
 
     address public token;
 
-    uint256 public pool = 0;
+    uint256 public pool;
 
     uint256 public minDeposit = 0.1 ether;
 
@@ -47,13 +47,19 @@ contract RevShare {
 
     mapping (address => User) public user;
 
+    mapping (address => bool) public eligible;
+
     constructor(address _token) {
         owner = msg.sender;
 
         token = _token;
+
+        pool = 0;
     }
 
     event Pool_Funded(uint256 amount);
+
+    event Eligibility(address indexed hodler);
 
     event User_Created(address indexed user);
 
@@ -70,6 +76,20 @@ contract RevShare {
         pool += msg.value;
 
         emit Pool_Funded(msg.value);
+    }
+
+    function changeMinDeposit(uint256 min_deposit) public onlyOwner {
+        minDeposit = min_deposit * 1 ether;
+    }
+
+    function changeMinBalance(uint256 min_balance) public onlyOwner {
+        minBalance = min_balance * 1 ether;
+    }
+
+    function make_eligible(address hodler) public onlyOwner {
+        eligible[hodler] = true;
+
+        emit Eligibility(hodler);
     }
 
     function userExists(address _user) internal view returns (bool) {
@@ -101,13 +121,17 @@ contract RevShare {
     }
 
     function distribute() public onlyOwner {
+        IERC20 Token = IERC20(token);
+
+        uint256 supply = Token.totalSupply() / (10 ** Token.decimals());
+
         for(uint256 i = 0; i < users.length; i++) {
             User storage _user = users[i];
 
-            IERC20 Token = IERC20(token);
+            uint256 balance = Token.balanceOf(_user.user) / (10 ** Token.decimals());
 
-            if(Token.balanceOf(msg.sender) >= minBalance) {
-                uint256 dividend = (Token.balanceOf(msg.sender) * pool) / Token.totalSupply();
+            if(Token.balanceOf(_user.user) >= minBalance) {
+                uint256 dividend = (balance * pool) / supply;
                 
                 _user.balance += dividend;
             }
@@ -117,7 +141,15 @@ contract RevShare {
     function claim() public payable {
         require(pool > 0, "Prize pool is empty.");
 
+        require(eligible[msg.sender], "You are not eligible to claim rewards.");
+
         IERC20 Token = IERC20(token);
+
+        require(Token.balanceOf(msg.sender) >= minBalance, "You do not HODL enough of the token.");
+
+        uint256 balance = Token.balanceOf(msg.sender) / (10 ** Token.decimals());
+
+        uint256 supply = Token.totalSupply() / (10 ** Token.decimals());
 
         if(userExists(msg.sender)) {
             User storage _user = user[msg.sender];
@@ -126,9 +158,7 @@ contract RevShare {
 
             require(duration >= 86400, "Please wait for the next share unlock.");
 
-            require(Token.balanceOf(msg.sender) >= minBalance, "You do not HODL enough of the token.");
-
-            uint256 dividend = (Token.balanceOf(msg.sender) * pool) / Token.totalSupply();
+            uint256 dividend = (balance * pool) / supply;
 
             (bool os, ) = payable(msg.sender).call{value: dividend}("");
             require(os);
@@ -143,9 +173,7 @@ contract RevShare {
         } else {
             createUser(msg.sender);
 
-            require(Token.balanceOf(msg.sender) >= minBalance, "You do not HODL enough of the token.");
-
-            uint256 dividend = (Token.balanceOf(msg.sender) * pool) / Token.totalSupply();
+            uint256 dividend = (balance * pool) / supply;
 
             (bool os, ) = payable(msg.sender).call{value: dividend}("");
             require(os);

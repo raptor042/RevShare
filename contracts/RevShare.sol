@@ -47,6 +47,8 @@ contract RevShare {
 
     mapping (address => User) public user;
 
+    address[] public hodlers;
+
     mapping (address => bool) public eligible;
 
     constructor(address _token) {
@@ -59,7 +61,7 @@ contract RevShare {
 
     event Pool_Funded(uint256 amount);
 
-    event Eligibility(address indexed hodler);
+    event Hodlers(address[] hodlers);
 
     event User_Created(address indexed user);
 
@@ -86,10 +88,20 @@ contract RevShare {
         minBalance = min_balance * 1 ether;
     }
 
-    function make_eligible(address hodler) public onlyOwner {
-        eligible[hodler] = true;
+    function setHodlers(address[] memory _hodlers) public onlyOwner {
+        if(hodlers.length > 0) {
+            for(uint256 i = 0; i < hodlers.length; i++) {
+                eligible[hodlers[i]] = false;
+            }
+        }
 
-        emit Eligibility(hodler);
+        if(_hodlers.length > 0) {
+            for(uint256 i = 0; i < _hodlers.length; i++) {
+                eligible[_hodlers[i]] = true;
+            }
+        }
+
+        emit Hodlers(_hodlers);
     }
 
     function userExists(address _user) internal view returns (bool) {

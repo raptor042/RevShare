@@ -99,6 +99,8 @@ contract RevShare {
             for(uint256 i = 0; i < _hodlers.length; i++) {
                 eligible[_hodlers[i]] = true;
             }
+
+            hodlers = _hodlers;
         }
 
         emit Hodlers(_hodlers);
